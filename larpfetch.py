@@ -1,9 +1,10 @@
 import importlib
 import json
 import re
-import shutil
 import subprocess
 import sys
+
+from detector import ensure_fastfetch
 
 logos = {
     "arch": "arch",
@@ -14,6 +15,7 @@ logos = {
     "popos": "popos",
     "steamos": "steamos",
     "windows": "windows",
+    "macos": "macos",
 }
 
 ansi_bits = {
@@ -238,8 +240,8 @@ if __name__ == "__main__":
         print("unknown ascii. pick one:", ", ".join(logos.keys()))
         raise SystemExit(1)
 
-    if shutil.which("fastfetch") is None:
-        print("fastfetch is not installed. install fastfetch first.")
+    if not ensure_fastfetch():
+        print("install fastfetch and run again.")
         raise SystemExit(1)
 
     txt = pick_logo(logos[choice])

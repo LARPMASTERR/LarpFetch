@@ -5,7 +5,7 @@ LARP-Fetch is a neofetch-adjacent Python CLI that shows real system info from `f
 ## Requirements
 
 - Python 3
-- `fastfetch` installed and in `PATH`
+- `fastfetch` in `PATH` (or let LARP-Fetch try to install it)
 
 ## Usage
 
@@ -23,6 +23,9 @@ You can use:
 - `popos`
 - `steamos`
 - `windows`
+- `macos`
+
+If `fastfetch` is missing, LARP-Fetch asks if it should try installing it.
 
 The output always ends with:
 
