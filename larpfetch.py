@@ -4,7 +4,7 @@ import re
 import subprocess
 import sys
 
-from detector import ensure_fastfetch
+from detector import ensure_fastfetch, find_fastfetch
 
 logos = {
     "arch": "arch",
@@ -16,6 +16,7 @@ logos = {
     "steamos": "steamos",
     "windows": "windows",
     "macos": "macos",
+    "cachyos": "cachyos",
 }
 
 ansi_bits = {
@@ -82,8 +83,8 @@ def _fmt_mem(b):
     return f"{gib:.1f} GiB"
 
 
-def from_json():
-    p = subprocess.run(["fastfetch", "--json"], capture_output=True, text=True)
+def from_json(fastfetch_bin):
+    p = subprocess.run([fastfetch_bin, "--json"], capture_output=True, text=True)
     if p.returncode != 0:
         return None
     try:
@@ -183,8 +184,8 @@ def from_json():
     return out if out else None
 
 
-def from_plain():
-    p = subprocess.run(["fastfetch", "--logo", "none"], capture_output=True, text=True)
+def from_plain(fastfetch_bin):
+    p = subprocess.run([fastfetch_bin, "--logo", "none"], capture_output=True, text=True)
     if p.returncode != 0:
         return []
 
@@ -221,10 +222,10 @@ def from_plain():
     return [("Info", x) for x in cleaned]
 
 
-def show_info():
-    rows = from_json()
+def show_info(fastfetch_bin):
+    rows = from_json(fastfetch_bin)
     if not rows:
-        rows = from_plain()
+        rows = from_plain(fastfetch_bin)
     for k, v in rows:
         print(f"{k}: {v}")
 
@@ -240,12 +241,15 @@ if __name__ == "__main__":
         print("unknown ascii. pick one:", ", ".join(logos.keys()))
         raise SystemExit(1)
 
-    if not ensure_fastfetch():
+    ff = find_fastfetch()
+    if not ff:
+        ff = ensure_fastfetch()
+    if not ff:
         print("install fastfetch and run again.")
         raise SystemExit(1)
 
     txt = pick_logo(logos[choice])
     if txt:
         print(paint(txt))
-    show_info()
+    show_info(ff)
     print("using LARP-Fetch")

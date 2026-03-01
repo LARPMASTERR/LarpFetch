@@ -1,10 +1,57 @@
 import os
 import shutil
 import subprocess
+import sys
 
 
 def _has(cmd):
     return shutil.which(cmd) is not None
+
+
+def _is_exec(path):
+    return bool(path) and os.path.isfile(path) and os.access(path, os.X_OK)
+
+
+def _first_exec(paths):
+    for p in paths:
+        if _is_exec(p):
+            return p
+    return None
+
+
+def _brew_bin():
+    b = shutil.which("brew")
+    if b:
+        return b
+    return _first_exec([
+        "/opt/homebrew/bin/brew",
+        "/usr/local/bin/brew",
+    ])
+
+
+def find_fastfetch():
+    hit = shutil.which("fastfetch")
+    if hit:
+        return hit
+
+    if os.name == "nt":
+        try:
+            p = subprocess.run(["where", "fastfetch"], capture_output=True, text=True)
+            if p.returncode == 0:
+                for line in p.stdout.splitlines():
+                    x = line.strip()
+                    if x and os.path.exists(x):
+                        return x
+        except Exception:
+            return None
+        return None
+
+    return _first_exec([
+        "/opt/homebrew/bin/fastfetch",
+        "/usr/local/bin/fastfetch",
+        "/opt/local/bin/fastfetch",
+        "/usr/bin/fastfetch",
+    ])
 
 
 def _yes(x):
@@ -35,6 +82,14 @@ def _install_plans():
             plans.append([["scoop", "install", "fastfetch"]])
         return plans
 
+    if sys.platform == "darwin":
+        brew = _brew_bin()
+        if brew:
+            plans.append([[brew, "install", "fastfetch"]])
+        if _has("port"):
+            plans.append([_with_sudo(["port", "install", "fastfetch"])])
+        return plans
+
     if _has("pacman"):
         plans.append([_with_sudo(["pacman", "-Sy", "--noconfirm", "fastfetch"])])
     if _has("apt-get"):
@@ -52,6 +107,10 @@ def _install_plans():
     if _has("apk"):
         plans.append([_with_sudo(["apk", "add", "fastfetch"])])
 
+    brew = _brew_bin()
+    if brew:
+        plans.append([[brew, "install", "fastfetch"]])
+
     return plans
 
 
@@ -68,26 +127,34 @@ def _run_plan(plan):
 
 
 def ensure_fastfetch():
-    if _has("fastfetch"):
-        return True
+    found = find_fastfetch()
+    if found:
+        return found
 
     print("fastfetch is not installed.")
     try:
         pick = input("can i try to install fastfetch now? [y/N]: ")
     except EOFError:
-        return False
+        return None
 
     if not _yes(pick):
-        return False
+        return None
 
     plans = _install_plans()
     if not plans:
-        print("no supported package manager found. install fastfetch manually.")
-        return False
+        if sys.platform == "darwin":
+            print("homebrew/macports not found. install Homebrew first, then run: brew install fastfetch")
+        else:
+            print("no supported package manager found. install fastfetch manually.")
+        return None
 
     for plan in plans:
-        if _run_plan(plan) and _has("fastfetch"):
-            return True
+        if _run_plan(plan):
+            got = find_fastfetch()
+            if got:
+                return got
 
     print("couldn't install fastfetch automatically.")
-    return _has("fastfetch")
+    if sys.platform == "darwin":
+        print("try this manually: brew install fastfetch")
+    return find_fastfetch()
