@@ -3,6 +3,7 @@ import json
 import re
 import subprocess
 import sys
+import time
 
 from detector import ensure_fastfetch, find_fastfetch
 
@@ -19,16 +20,30 @@ logos = {
     "cachyos": "cachyos",
 }
 
-ansi_bits = {
-    "$1": "\033[38;5;39m",
-    "$2": "\033[38;5;45m",
-    "$3": "\033[38;5;81m",
-    "$4": "\033[38;5;117m",
-    "$5": "\033[38;5;214m",
-    "$6": "\033[38;5;203m",
-    "$7": "\033[38;5;135m",
-    "$8": "\033[38;5;250m",
-    "$9": "\033[38;5;15m",
+base_bits = {
+    "$0": "\033[0m",
+    "$1": "\033[31m",
+    "$2": "\033[32m",
+    "$3": "\033[33m",
+    "$4": "\033[34m",
+    "$5": "\033[35m",
+    "$6": "\033[36m",
+    "$7": "\033[37m",
+    "$8": "\033[90m",
+    "$9": "\033[97m",
+}
+
+logo_bits = {
+    "arch": {"$1": "\033[97m", "$2": "\033[36m"},
+    "ubuntu": {"$1": "\033[97m", "$2": "\033[38;5;208m"},
+    "mint": {"$1": "\033[97m", "$2": "\033[38;5;42m"},
+    "fedora": {"$1": "\033[97m", "$2": "\033[38;5;27m"},
+    "gentoo": {"$1": "\033[97m", "$2": "\033[38;5;135m"},
+    "popos": {"$1": "\033[97m", "$2": "\033[38;5;39m"},
+    "steamos": {"$1": "\033[97m", "$2": "\033[38;5;39m"},
+    "windows": {"$1": "\033[38;5;39m", "$2": "\033[38;5;75m", "$3": "\033[38;5;117m", "$4": "\033[38;5;81m"},
+    "macos": {"$2": "\033[38;5;196m", "$3": "\033[38;5;208m", "$4": "\033[38;5;220m", "$5": "\033[38;5;82m", "$6": "\033[38;5;39m"},
+    "cachyos": {"$1": "\033[97m", "$2": "\033[38;5;45m", "$3": "\033[38;5;39m"},
 }
 
 
@@ -45,9 +60,12 @@ def pick_logo(modname):
     return ""
 
 
-def paint(x):
+def paint(x, logo_key=None):
     out = x
-    for token, color in ansi_bits.items():
+    bits = dict(base_bits)
+    if logo_key in logo_bits:
+        bits.update(logo_bits[logo_key])
+    for token, color in bits.items():
         out = out.replace(token, color)
     return out + "\033[0m"
 
@@ -81,6 +99,26 @@ def _fmt_mem(b):
     if gib >= 100:
         return f"{gib:.0f} GiB"
     return f"{gib:.1f} GiB"
+
+
+def _cmd(cmd):
+    try:
+        p = subprocess.run(cmd, capture_output=True, text=True)
+    except Exception:
+        return ""
+    if p.returncode != 0:
+        return ""
+    return p.stdout.strip()
+
+
+def _grab_pref(text, keys):
+    for line in text.splitlines():
+        s = line.strip()
+        for k in keys:
+            needle = k + ":"
+            if s.startswith(needle):
+                return s.split(":", 1)[1].strip()
+    return ""
 
 
 def from_json(fastfetch_bin):
@@ -230,6 +268,30 @@ def show_info(fastfetch_bin):
         print(f"{k}: {v}")
 
 
+def show_macos_specs():
+    txt = pick_logo("macos")
+    if txt:
+        print(paint(txt, "macos"))
+
+    fake = [
+        ("OS", "macOS Tahoe 26.0"),
+        ("Kernel", "Darwin 24.0.0"),
+        ("CPU", "Apple M2"),
+        ("GPU", "Apple M2"),
+        ("RAM", "16 GB"),
+        ("Uptime", "7d 4h 12m"),
+        ("Packages", "214"),
+        ("Shell", "zsh 5.9"),
+        ("Model", "MacBook Air (13-inch, M2, 2022)"),
+    ]
+
+    for k, v in fake:
+        print(f"{k}: {v}")
+
+    print("using LARP-Fetch")
+    return 0
+
+
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("usage: python larpfetch.py arch")
@@ -237,6 +299,10 @@ if __name__ == "__main__":
         raise SystemExit(1)
 
     choice = sys.argv[1].strip().lower()
+
+    if choice in {"macspecs", "mac-specs", "macos-specs"}:
+        raise SystemExit(show_macos_specs())
+
     if choice not in logos:
         print("unknown ascii. pick one:", ", ".join(logos.keys()))
         raise SystemExit(1)
@@ -250,6 +316,6 @@ if __name__ == "__main__":
 
     txt = pick_logo(logos[choice])
     if txt:
-        print(paint(txt))
+        print(paint(txt, choice))
     show_info(ff)
     print("using LARP-Fetch")
